@@ -1,0 +1,6 @@
+---
+# defaults file for tectonic
+releases_url: "https://api.github.com/repos/coreos/tectonic-installer/releases"
+download_url: "https://releases.tectonic.com/tectonic-{{ release_version }}.tar.gz"
+
+local_arch: "darwin" # linux

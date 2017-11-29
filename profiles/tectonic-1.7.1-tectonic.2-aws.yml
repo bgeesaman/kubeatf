@@ -1,0 +1,22 @@
+---
+kubeatf:
+  profile_name: "tectonic-1.7.1-tectonic.2-aws"
+  installer:    "tectonic"
+  release:      "1.7.1-tectonic.2"
+  platform:     "aws"
+  vars:
+    cluster_name: "tectonic-171-2"
+    dns_zone_name: "kube.lonimbus.com"
+    aws_region: "us-east-2"
+    aws_keypair: "kube"
+    tectonic_admin_email: "admin@admin.com"
+    tectonic_admin_password_hash: ""
+    tectonic_etcd_size: "t2.medium"
+    tectonic_etcd_count: 1
+    tectonic_master_size: "t2.medium"
+    tectonic_master_count: 1
+    tectonic_worker_size: "t2.medium"
+    tectonic_worker_count: 2
+    tectonic_calico_enabled: true
+    tectonic_pull_secret: ""
+    tectonic_license: ""

@@ -1,0 +1,26 @@
+---
+# tasks file for kube-audit
+- name: "{{ role_action }} - {{ role_name }} {{ cluster_id }}"
+  debug:
+    msg: "This is {{ role_action }} for {{ role_name }} {{ cluster_id }}"
+
+# Lists the running pods in the default ns
+- include: "roles/{{ role_name }}/tasks/listallpods.yml"
+
+# Launches the test pod "auditcon" in the default namespace if not already running
+- include: "roles/{{ role_name }}/tasks/launchtestpod.yml"
+
+# Gets all the variables needed for the targets.sh used by audit.sh
+- include: "roles/{{ role_name }}/tasks/getnodesandips-{{ kubeatf.installer }}.yml"
+
+# Upload targets variables sh to pod
+- include: "roles/{{ role_name }}/tasks/uploadtargets.yml"
+
+# Upload audit script
+- include: "roles/{{ role_name }}/tasks/uploadauditscript.yml"
+
+# Run audit script
+- include: "roles/{{ role_name }}/tasks/runauditscript.yml"
+
+# Cleanup
+#- include: "roles/{{ role_name }}/tasks/deletetestpod.yml"

@@ -1,0 +1,14 @@
+---
+- name: "Get default namespace pods"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig get pods"
+  register: k3gpresult
+  until: k3gpresult.rc == 0
+  retries: 10
+  delay: 10
+
+- name: List all pods
+  debug:
+    msg: "{{ k3gpresult.stdout_lines }}"
+  when: (k3gpresult.changed == true)

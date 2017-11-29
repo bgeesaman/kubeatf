@@ -1,0 +1,8 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/profile.yml"
+  roles:
+    - { role: "{{ kubeatf.installer }}", role_action: destroy, cluster_id: "{{ cluster_id }}" }

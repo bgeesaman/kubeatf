@@ -1,0 +1,7 @@
+---
+# defaults file for kube-aws
+releases_url: "https://api.github.com/repos/kubernetes-incubator/kube-aws/releases"
+download_url: "https://github.com/kubernetes-incubator/kube-aws/releases/download/{{ release_version }}/kube-aws-linux-amd64.tar.gz"
+download_url2: "https://github.com/kubernetes-incubator/kube-aws/releases/download/{{ release_version }}/kube-aws-darwin-amd64.tar.gz"
+
+local_arch: "darwin-amd64" # linux-amd64

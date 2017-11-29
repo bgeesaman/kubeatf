@@ -1,0 +1,6 @@
+---
+# defaults file for kubeaudit
+
+audit_name: "auditcon"
+audit_image: "bradgeesaman/auditcon"
+audit_sh_path: "roles/{{ role_name }}/files/audit.sh"

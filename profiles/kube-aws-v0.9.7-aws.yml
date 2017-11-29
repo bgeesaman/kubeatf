@@ -1,0 +1,15 @@
+---
+kubeatf:
+  profile_name: "kube-aws-v0.9.7"
+  installer:    "kube-aws"
+  release:      "v0.9.7"
+  platform:     "aws"
+  vars:
+    cluster_name: "kube-aws-v097"
+    dns_zone_name: "kube.lonimbus.com"
+    aws_region: "us-west-2"
+    aws_zone: "us-west-2b"
+    aws_keypair: "kube"
+    s3_bucket: "bgeesaman-kubeaws-v0.9.7"
+    aws_kmsarn: "AWSKMSARNPLACEHOLDER"
+    r53_zone_id: "R53ZONEIDPLACEHOLDER"

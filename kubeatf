@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# Error handling
+set -ueo pipefail
+
+# Overall command usage
+_usage() {
+  echo "Usage: ${0} <command> <options>"
+  echo ""
+  echo "Detailed command usage: ${0} <command> help"
+  echo ""
+  echo "${0} docker-build - Builds the KubeATF image locally"
+  echo "${0} get <installer> <version> - Downloads to the releases folder"
+  echo "${0} list-releases - Lists the tools/installers and versions downloaded"
+  echo "${0} list-profiles - Lists the profiles for creating clusters"
+  echo "${0} create-cluster <profile_name> - Creates a cluster using a certain profile"
+  echo "${0} list-clusters - Lists the clusters and their status"
+  echo "${0} audit-cluster <cluster_id> < testname | all > - Audits a cluster by unique name"
+  echo "${0} destroy-cluster <cluster_id> - Destroys a cluster by unique name"
+  echo ""
+  exit
+}
+
+# Source in general util functions and constants/paths
+. ./bin/util.sh
+# Source in files for each command
+. ./bin/docker-build.sh
+. ./bin/get.sh
+. ./bin/list-releases.sh
+. ./bin/list-profiles.sh
+. ./bin/create-cluster.sh
+. ./bin/list-clusters.sh
+. ./bin/audit-cluster.sh
+. ./bin/destroy-cluster.sh
+
+# List our allowed commands
+allowed_commands=("docker-build" "get" "list-releases" "list-profiles" "list-clusters" "create-cluster" "audit-cluster" "destroy-cluster" "help")
+
+# Do we have an argument?
+if [ -z "${1-}" ]; then _usage; fi
+# Is it an allowed command? Show general usage if not
+if [[ ! " ${allowed_commands[@]} " =~ " ${1} " ]]; then _usage; fi
+# We have a good command, run it
+"$@"

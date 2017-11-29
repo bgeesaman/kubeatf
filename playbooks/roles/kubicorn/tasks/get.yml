@@ -1,0 +1,16 @@
+---
+# tasks file for kubicorn
+- name: "{{ role_action }} - {{ role_name }} {{ release_version }}"
+  debug:
+    msg: "This is {{ role_action }} for {{ role_name }} version {{ release_version }}"
+
+- name: "Create {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}"
+  file:
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}"
+    state: directory
+    mode: 0755
+
+- name: "Get kubicorn"
+  local_action:
+    module: shell
+    cmd: "GOPATH={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }} go get github.com/kris-nova/kubicorn"

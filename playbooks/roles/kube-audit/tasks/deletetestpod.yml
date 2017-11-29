@@ -1,0 +1,20 @@
+---
+# Cleanup
+- name: "Delete test pod"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig delete deployment {{ audit_name }}"
+  register: deletedep
+  until: "(deletedep.rc == 0)"
+  retries: 30
+  delay: 3
+
+- name: "Wait for pod to be fully gone"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig get pod {{ podname.stdout }}"
+  register: podstillrunning
+  failed_when: "(podstillrunning.rc != 0) and ('NotFound' not in podstillrunning.stderr)"
+  until: "('NotFound' in podstillrunning.stderr)"
+  retries: 30
+  delay: 3

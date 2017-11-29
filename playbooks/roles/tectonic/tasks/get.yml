@@ -1,0 +1,33 @@
+---
+# tasks file for tectonic
+- name: "{{ role_action }} - {{ role_name }} {{ release_version }}"
+  debug:
+    msg: "This is {{ role_action }} for {{ role_name }} version {{ release_version }}"
+
+- name: "Create {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}"
+  file:
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}"
+    state: directory
+    mode: 0755
+
+- name: "Download {{ role_name }} release: {{ release_version }}"
+  get_url:
+    url: "{{ download_url }}"
+    dest: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}/{{ release_version }}.download"
+
+- name: "Process downloaded file"
+  copy:
+    src: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}/{{ release_version }}.download"
+    dest: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}/{{ role_name }}.tar.gz"
+    mode: 0755
+
+- name: "Untar downloaded file"
+  unarchive:
+    src: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}/{{ role_name }}.tar.gz"
+    dest: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}/"
+
+- name: "Delete temp download file"
+  file:
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}/{{ release_version }}.download"
+    state: "absent"
+

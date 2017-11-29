@@ -1,0 +1,8 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - "{{ full_profile_path }}"
+  roles:
+    - { role: "{{ kubeatf.installer }}", role_action: create, release_version: "{{ kubeatf.release }}", platform: "{{ kubeatf.platform }}" }

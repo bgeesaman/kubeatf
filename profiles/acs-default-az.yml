@@ -1,0 +1,8 @@
+---
+kubeatf:
+  profile_name: "acs-default-az"
+  installer:    "acs"
+  release:      "default"
+  platform:     "az"
+  vars:
+    location: "eastus2"

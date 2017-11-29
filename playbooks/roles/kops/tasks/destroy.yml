@@ -1,0 +1,33 @@
+---
+# tasks file for kops
+- name: "{{ role_action }} - {{ kubeatf.installer }} {{ cluster_id }}"
+  debug:
+    msg: "This is {{ role_action }} for {{ kubeatf.installer }} {{ cluster_id }}"
+
+- name: "Destroy the cluster"
+  local_action:
+    module: shell
+    cmd: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ kubeatf.installer }}/{{ kubeatf.release }}/kops-{{ local_arch }} delete cluster --name {{ kubeatf.vars.dns_zone_name }} --state s3://{{ kubeatf.vars.s3_bucket_prefix }}-{{ kubeatf.release }}-{{ kubeatf.platform }} --yes"
+  failed_when: (destroyresult.rc !=0) and (destroyresult.stderr.find("not found") == -1)
+  register: destroyresult
+  until: (destroyresult.rc == 0) or (destroyresult.stderr.find("not found") != -1)
+  retries: 10
+  delay: 20
+
+- name: Show destroyed
+  debug:
+    msg: "{{ destroyresult.stdout_lines }}"
+
+- name: "Delete S3 Bucket"
+  s3_bucket:
+    name: "{{ kubeatf.vars.s3_bucket_prefix }}-{{ kubeatf.release }}-{{ kubeatf.platform }}"
+    state: absent
+    region: "{{ kubeatf.vars.aws_region }}"
+    force: yes
+  ignore_errors: yes
+
+- name: Remove cluster folder
+  local_action:
+    module: file
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}"
+    state: absent

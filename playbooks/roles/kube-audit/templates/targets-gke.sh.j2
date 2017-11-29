@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# aks
+{% if nodeip.stdout is defined %}
+export KUBELET_URL="https://{{ nodeip.stdout }}:10250/runningpods/"
+{% endif %}
+{% if othernodeip.stdout is defined %}
+export KUBELET_OTHER_WORKER_URL="https://{{ othernodeip.stdout }}:10250/runningpods/"
+{% endif %}
+{% if nodeip.stdout is defined %}
+export KUBELET_RO_URL="http://{{ nodeip.stdout }}:10255/metrics"
+{% endif %}
+{% if othernodeip.stdout is defined %}
+export KUBELET_OTHER_WORKER_RO_URL="http://{{ othernodeip.stdout }}:10255/metrics"
+{% endif %}
+{% if dashboardsvc.stdout is defined %}
+export DASHBOARD_URL="http://{{ dashboardsvc.stdout }}.kube-system"
+{% endif %}
+{% if heapstersvc.stdout is defined %}
+export HEAPSTER_URL="http://{{ heapstersvc.stdout }}.kube-system/metrics"
+{% endif %}

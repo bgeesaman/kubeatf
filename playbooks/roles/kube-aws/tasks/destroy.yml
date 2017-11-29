@@ -1,0 +1,66 @@
+---
+# tasks file for kube-aws
+- name: "{{ role_action }} - {{ kubeatf.installer }} {{ cluster_id }}"
+  debug:
+    msg: "This is {{ role_action }} for {{ kubeatf.installer }} {{ cluster_id }}"
+
+#- name: "Destroy the cluster"
+#  local_action:
+#    module: shell
+#    cmd: "cd {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ kubeatf.release }}-{{ kubeatf.platform }} && ./kube-aws destroy"
+#  register: down
+#  failed_when: (down.rc !=0) and ('No such file' not in down.stderr)
+#
+#- name: "Stack down"
+#  debug:
+#    msg: "{{ down.stdout_lines }}"
+
+- name: "Destroy the cluster"
+  cloudformation:
+    stack_name: "{{ kubeatf.vars.cluster_name }}"
+    state: "absent"
+    region: "{{ kubeatf.vars.aws_region }}"
+  register: stackoutput
+
+- name: Get params
+  debug:
+    msg: "{{ stackoutput }}"
+
+- name: "Get R53 Entry (if any)"
+  route53:
+    command: "get"
+    zone: "{{ kubeatf.vars.dns_zone_name }}"
+    record: "cluster.{{ kubeatf.vars.dns_zone_name }}"
+    type: "CNAME"
+  register: r53rec
+
+- name: "Delete old R53 entry (if needed)"
+  route53:
+    command: "delete"
+    zone: "{{ kubeatf.vars.dns_zone_name }}"
+    record: "cluster.{{ kubeatf.vars.dns_zone_name }}"
+    type: "{{ r53rec.set.type }}"
+    value: "{{ r53rec.set.value }}"
+    ttl: "{{ r53rec.set.ttl }}"
+  when: (r53rec.set.value is defined)
+
+- name: "Delete S3 Bucket"
+  s3_bucket:
+    name: "{{ kubeatf.vars.s3_bucket }}"
+    state: absent
+    region: "{{ kubeatf.vars.aws_region }}"
+    force: yes
+  ignore_errors: yes 
+
+- name: "Delete KMS Key in 7 days"
+  local_action:
+    module: command
+    cmd: "aws kms schedule-key-deletion --region {{ kubeatf.vars.aws_region }} --key-id '{{ kubeatf.vars.aws_kmsarn }}' --pending-window-in-days 7"
+  register: kmsdelete
+  failed_when: (kmsdelete.rc !=0) and ('is pending deletion' not in kmsdelete.stderr)
+
+- name: Remove cluster folder
+  local_action:
+    module: file
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}"
+    state: absent

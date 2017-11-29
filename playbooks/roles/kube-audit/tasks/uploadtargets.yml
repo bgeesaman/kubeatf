@@ -1,0 +1,14 @@
+---
+# Template targets vars
+- name: Template targets vars
+  local_action:
+    module: template
+    src: "targets-{{ kubeatf.installer }}.sh.j2"
+    dest: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/targets.sh"
+    mode: 0644
+
+# Upload targets vars
+- name: Upload targets vars
+  local_action:
+    module: command
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig cp {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/targets.sh {{ podname.stdout }}:"

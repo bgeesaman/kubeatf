@@ -1,0 +1,22 @@
+---
+# tasks file for tectonic
+- name: "{{ role_action }} - {{ kubeatf.installer }} {{ cluster_id }}"
+  debug:
+    msg: "This is {{ role_action }} for {{ kubeatf.installer }} {{ cluster_id }}"
+
+- name: "Destroy the cluster"
+  local_action:
+    module: shell
+    cmd: "cd {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ kubeatf.release }}-{{ kubeatf.platform }} && ./terraform destroy -force"
+  register: down
+  failed_when: (down.rc !=0)
+
+- name: "Stack down"
+  debug:
+    msg: "{{ down.stdout_lines }}"
+
+- name: Remove cluster folder
+  local_action:
+    module: file
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}"
+    state: absent

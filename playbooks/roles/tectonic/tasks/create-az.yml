@@ -1,0 +1,6 @@
+---
+# tasks file for tectonic azure
+
+- name: "Install on {{ platform }}"
+  debug:
+    msg: "{{ platform }}"

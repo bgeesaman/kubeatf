@@ -1,0 +1,53 @@
+---
+# tasks file for heptio
+- name: "{{ role_action }} - {{ role_name }} {{ release_version }} {{ platform }}"
+  debug:
+    msg: "This is {{ role_action }} for {{ role_name }} version {{ release_version }} on {{ platform }}"
+
+- name: "Generate cluster local dir"
+  local_action:
+    module: file
+    state: directory
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}"
+    mode: 0755
+
+- name:
+  get_url:
+    url: "https://{{ kubeatf.vars.s3_bucket }}.s3.amazonaws.com/{{ kubeatf.vars.s3_prefix }}/templates/kubernetes-cluster-with-new-vpc.template"
+    dest: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/cftemplate.json"
+
+- name: "Create cluster"
+  cloudformation:
+    stack_name: "{{ kubeatf.vars.stack_name }}"
+    state: "present"
+    region: "{{ kubeatf.vars.aws_region }}"
+    disable_rollback: false
+    template: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/cftemplate.json"
+    template_parameters:
+      KeyName: "{{ kubeatf.vars.aws_keypair }}"
+      AvailabilityZone: "{{ kubeatf.vars.aws_az }}"
+      AdminIngressLocation: "{{ kubeatf.vars.ssh_ingress }}"
+      QSS3BucketName: "{{ kubeatf.vars.s3_bucket }}"
+      QSS3KeyPrefix: "{{ kubeatf.vars.s3_prefix }}"
+    tags:
+      Stack: "{{ kubeatf.vars.stack_name }}"
+  register: stackoutput
+
+- name: "Extract kubeconfig"
+  local_action:
+    module: shell
+    cmd: "SSH_KEY='{{ kubeatf.vars.ssh_keypath }}'; scp -i $SSH_KEY -o StrictHostKeyChecking=no -o ProxyCommand=\"ssh -o StrictHostKeyChecking=no -i \\\"${SSH_KEY}\\\" ubuntu@{{ stackoutput.stack_outputs.BastionHostPublicIp }} nc %h %p\" ubuntu@{{ stackoutput.stack_outputs.MasterPrivateIp }}:~/kubeconfig {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/kubeconfig"
+   
+- name: "Wait until cluster is up/running"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/kubeconfig get pods --all-namespaces"
+  register: clusterresult
+  until: (clusterresult.rc == 0) and ('Pending' not in clusterresult.stdout) and ('Creating' not in clusterresult.stdout)
+  retries: 10
+  delay: 20 
+
+- name: "Copy Profile to Clusters Dir"
+  local_action:
+    module: shell
+    cmd: "cp {{ full_profile_path }} {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/profile.yml"

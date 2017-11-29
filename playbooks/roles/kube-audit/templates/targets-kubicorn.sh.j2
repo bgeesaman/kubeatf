@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# kubicorn
+export AWS_REGION="{{ kubeatf.vars.aws_region | default('us-west-2') }}"
+{% if nodeip.stdout is defined %}
+ export KUBELET_URL="https://{{ nodeip.stdout }}:10250/runningpods/"
+{% endif %}
+{% if masterip.stdout is defined %}
+export KUBELET_MASTER_URL="https://{{ masterip.stdout }}:10250/runningpods/"
+{% endif %}
+{% if nodeip.stdout is defined %}
+export KUBELET_RO_URL="http://{{ nodeip.stdout }}:10255/metrics"
+{% endif %}
+{% if masterip.stdout is defined %}
+export KUBELET_MASTER_RO_URL="http://{{ masterip.stdout }}:10255/metrics"
+{% endif %}
+{% if masterip.stdout is defined %}
+export CALICO_ETCD_URL="http://{{ masterip.stdout }}:6666/v2/keys"
+{% endif %}

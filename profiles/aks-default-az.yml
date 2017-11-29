@@ -1,0 +1,9 @@
+---
+kubeatf:
+  profile_name: "aks-default-az"
+  installer:    "aks"
+  release:      "default"
+  platform:     "az"
+  vars:
+    location: "ukwest"
+    worker_count: "3"

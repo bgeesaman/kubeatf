@@ -1,0 +1,66 @@
+---
+# tasks file for kops
+- name: "{{ role_action }} - {{ role_name }} {{ release_version }} {{ platform }}"
+  debug:
+    msg: "This is {{ role_action }} for {{ role_name }} version {{ release_version }} on {{ platform }}"
+   
+- name: "Generate cluster local dir"
+  local_action:
+    module: file
+    state: directory
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}"
+    mode: 0755
+
+- name: "Get profile.yml if created"
+  local_action:
+    module: stat
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/profile.yml"
+  register: profilepath
+
+- name: "Fail if it already exists"
+  fail:
+    msg: "Cluster already created!"
+  when: (profilepath.stat.exists == true)
+
+- name: "Create Resource Group"
+  local_action:
+    module: command
+    cmd: "az group create --name {{ kubeatf.profile_name }} --location {{ kubeatf.vars.location }}"
+
+- name: "Create cluster"
+  local_action:
+    module: shell
+    cmd: "az acs create --orchestrator-type kubernetes --resource-group {{ kubeatf.profile_name }} --name {{ kubeatf.profile_name }} --generate-ssh-keys --master-count 1 --agent-count 1"
+  register: clusterresult
+
+- name: "Create cluster output"
+  debug:
+    msg: "{{ clusterresult.stdout_lines }}"
+
+- name: "Copy Profile to Clusters Dir"
+  local_action:
+    module: shell
+    cmd: "cp {{ full_profile_path }} {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/profile.yml"
+
+- name: "Grab cluster credentials"
+  local_action:
+    module: shell
+    cmd: "az acs kubernetes get-credentials --resource-group={{ kubeatf.profile_name }} --name={{ kubeatf.profile_name }}"
+  register: credsresult
+  until: (credsresult.rc == 0)
+  retries: 10
+  delay: 20
+
+- name: "Copy kubeconfig to Clusters Dir"
+  local_action:
+    module: shell
+    cmd: "cp ~/.kube/config {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/kubeconfig"
+
+- name: "Wait until cluster is up/running"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/kubeconfig get pods --all-namespaces"
+  register: clusterresult
+  until: (clusterresult.rc == 0) and ('Pending' not in clusterresult.stdout) and ('Creating' not in clusterresult.stdout) and ('Error' not in clusterresult.stdout)
+  retries: 15
+  delay: 20

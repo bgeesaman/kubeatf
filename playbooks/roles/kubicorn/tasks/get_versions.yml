@@ -1,0 +1,16 @@
+---
+# tasks file for kubicorn
+- name: "{{ role_action }} - {{ role_name }}"
+  debug:
+    msg: "This is {{ role_action }} for {{ role_name }}"
+
+- name: "Create {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}"
+  file:
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}"
+    state: directory
+    mode: 0755
+
+- name: "Get available {{ role_name }} releases"
+  local_action:
+    module: shell
+    cmd: "echo '[{\"tag_name\": \"default\", \"created_at\": \"latest\"}]' > {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/releases.json"

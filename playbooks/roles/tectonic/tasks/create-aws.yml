@@ -1,0 +1,71 @@
+---
+# tasks file for tectonic
+
+- name: "Get R53 Entry (if any)"
+  route53:
+    command: "get"
+    zone: "{{ kubeatf.vars.dns_zone_name }}"
+    record: "{{ kubeatf.vars.cluster_name }}.{{ kubeatf.vars.dns_zone_name }}"
+    type: "A"
+  register: r53rec
+
+- name: "Delete old R53 entry (if needed)"
+  route53:
+    command: "delete"
+    zone: "{{ kubeatf.vars.dns_zone_name }}"
+    record: "{{ kubeatf.vars.cluster_name }}.{{ kubeatf.vars.dns_zone_name }}"
+    type: "{{ r53rec.set.type }}"
+    value: "{{ r53rec.set.value }}"
+    ttl: "{{ r53rec.set.ttl }}"
+  when: (r53rec.set.value is defined)
+
+- name: "Grab SSH Pub Key"
+  local_action:
+    module: command
+    cmd: "ssh-keygen -y -f ~/.ssh/kube.pem"
+  register: sshpub
+  changed_when: false
+
+- name: "Prepare key pair"
+  ec2_key:
+    name: kube
+    key_material: "{{ sshpub.stdout }}"
+    region: "{{ kubeatf.vars.aws_region }}"
+
+- name: "Render terraform.tfvars"
+  local_action:
+    module: template
+    src: "terraform.tfvars.j2"
+    dest: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/terraform.tfvars"
+
+- name: "Render config.json"
+  local_action:
+    module: template
+    src: "config.json.j2"
+    dest: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/config.json"
+
+- name: "Render license.txt"
+  local_action:
+    module: copy
+    content: "{{ kubeatf.vars.tectonic_license }}"
+    dest: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/license.txt"
+    mode: 0644
+
+- name: "Copy terraform binary to clusters dir"
+  local_action:
+    module: copy
+    src: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}/tectonic/tectonic-installer/{{ local_arch }}/terraform"
+    dest: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/terraform"
+    mode: 0755
+
+- name: "Copy *.tf files to clusters dir"
+  local_action:
+    module: shell
+    cmd: "cp {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}/tectonic/platforms/aws/*.tf {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/"
+
+- name: "Copy config.tf file to clusters dir"
+  local_action:
+    module: copy
+    src: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}/tectonic/config.tf"
+    dest: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/"
+    mode: 0644

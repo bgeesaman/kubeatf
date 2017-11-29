@@ -1,0 +1,10 @@
+---
+- name: Upload audit script
+  local_action:
+    module: command
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig cp {{ audit_sh_path }} {{ podname.stdout }}:"
+
+- name: Chmod +x audit script
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig exec -t {{ podname.stdout }} -- chmod +x /audit.sh"

@@ -1,0 +1,15 @@
+---
+kubeatf:
+  profile_name: "heptio-master"
+  installer:    "heptio"
+  release:      "master"
+  platform:     "aws"
+  vars:
+    aws_region:  "us-east-2"
+    aws_az:      "us-east-2b"
+    stack_name:  "heptio-master-aws"
+    aws_keypair: "kube"
+    ssh_keypath: "~/.ssh/kube.pem"
+    ssh_ingress: "0.0.0.0/0"
+    s3_bucket:   "heptio-aws-quickstart-test"
+    s3_prefix:   "heptio/kubernetes/master"

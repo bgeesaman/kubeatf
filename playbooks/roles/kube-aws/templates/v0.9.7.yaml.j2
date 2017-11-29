@@ -1,0 +1,513 @@
+clusterName: "{{ kubeatf.vars.cluster_name }}"
+
+apiEndpoints:
+- # The unique name of this API endpoint used to identify it inside CloudFormation stacks or
+  name: default
+  dnsName: "{{ kubeatf.vars.cluster_name }}.{{ kubeatf.vars.dns_zone_name }}"
+  loadBalancer:
+    createRecordSet: true
+    private: false
+    recordSetTTL: 120
+    hostedZone:
+      id: "{{ kubeatf.vars.r53_zone_id }}"
+keyName: "{{ kubeatf.vars.aws_keypair }}"
+region: "{{ kubeatf.vars.aws_region }}"
+availabilityZone: "{{ kubeatf.vars.aws_zone }}"
+kmsKeyArn: "{{ kubeatf.vars.aws_kmsarn }}"
+
+controller:
+  count: 1
+  createTimeout: PT15M
+  instanceType: t2.medium
+  rootVolume:
+    size: 30
+    type: gp2
+    iops: 0
+
+worker:
+  nodePools:
+    - # Name of this node pool. Must be unique among all the node pools in this cluster
+      name: nodepool1
+      count: 1
+      instanceType: t2.medium
+      rootVolume:
+        size: 30
+        type: gp2
+        iops: 0
+      createTimeout: PT15M
+      waitSignal:
+        enabled: true
+        maxBatchSize: 1
+      autoScalingGroup:
+        minSize: 1
+        maxSize: 2
+        rollingUpdateMinInstancesInService: 2
+      awsNodeLabels:
+        enabled: true
+      clusterAutoscalerSupport:
+        enabled: true
+#      kube2IamSupport:
+#        enabled: true
+      nodeLabels:
+        kube-aws.coreos.com/role: worker
+
+etcd:
+  count: 1
+  instanceType: t2.medium
+  rootVolume:
+    size: 30
+    type: gp2
+    iops: 0
+  dataVolume:
+    size: 30
+    type: gp2
+    iops: 0
+    encrypted: false
+    ephemeral: false
+  tenancy: default
+  version: 2
+
+## Networking config
+
+# Advanced: ID of existing route table in existing VPC to attach subnet to.
+# Leave blank to use the VPC's main route table.
+# This should be specified if and only if vpcId is specified.
+#
+# IMPORTANT NOTICE:
+#
+# If routeTableId is specified, it's your responsibility to add an appropriate route to
+# an internet gateway(IGW) or a NAT gateway(NGW) to the route table.
+#
+# More concretely,
+# * If you like to make all the subnets private, pre-configure an NGW yourself and add a route to the NGW beforehand
+# * If you like to make all the subnets public, pre-configure an IGW yourself and add a route to the IGW beforehand
+# * If you like to mix private and public subnets, omit routeTableId but specify subnets[].routeTable.id per subnet
+#
+# routeTableId: rtb-xxxxxxxx
+
+# CIDR for Kubernetes VPC. If vpcId is specified, must match the CIDR of existing vpc.
+# vpcCIDR: "10.0.0.0/16"
+
+# CIDR for Kubernetes subnet when placing nodes in a single availability zone (not highly-available) Leave commented out for multi availability zone setting and use the below `subnets` section instead.
+# instanceCIDR: "10.0.0.0/24"
+
+# Kubernetes subnets with their CIDRs and availability zones.
+# Differentiating availability zone for 2 or more subnets result in high-availability (failures of a single availability zone won't result in immediate downtimes)
+# subnets:
+#   #
+#   # Managed public subnet managed by kube-aws
+#   #
+#   - name: ManagedPublicSubnet1
+#     # Set to false if this subnet is public
+#     # private: false
+#     availabilityZone: us-west-1a
+#     instanceCIDR: "10.0.0.0/24"
+#
+#   #
+#   # Managed private subnet managed by kube-aws
+#   #
+#   - name: ManagedPrivateSubnet1
+#     # Set to true if this subnet is private
+#     private: true
+#     availabilityZone: us-west-1a
+#     instanceCIDR: "10.0.1.0/24"
+#
+#   #
+#   # Advanced: Unmanaged/existing public subnet reused but not managed by kube-aws
+#   #
+#   # An internet gateway(igw) and a route table contains the route to the igw must have been properly configured by YOU.
+#   # kube-aws tries to reuse the subnet specified by id or idFromStackOutput but kube-aws never modify the subnet
+#   #
+#   - name: ExistingPublicSubnet1
+#     # Beware that `availabilityZone` can't be omitted; it must be the one in which the subnet exists.
+#     availabilityZone: us-west-1a
+#     # ID of existing subnet to be reused.
+#     # availabilityZone should still be provided but instanceCIDR can be omitted when id is specified.
+#     id: "subnet-xxxxxxxx"
+#     # Exported output's name from another stack
+#     # Only specify either id or idFromStackOutput but not both
+#     #idFromStackOutput: myinfra-PublicSubnet1
+#
+#   #
+#   # Advanced: Unmanaged/existing private subnet reused but not managed by kube-aws
+#   #
+#   # A nat gateway(ngw) and a route table contains the route to the ngw must have been properly configured by YOU.
+#   # kube-aws tries to reuse the subnet specified by id or idFromStackOutput but kube-aws never modify the subnet
+#   #
+#   - name: ExistingPrivateSubnet1
+#     # Beware that `availabilityZone` can't be omitted; it must be the one in which the subnet exists.
+#     availabilityZone: us-west-1a
+#     # Existing subnet.
+#     id: "subnet-xxxxxxxx"
+#     # Exported output's name from another stack
+#     # Only specify either id or idFromStackOutput but not both
+#     #idFromStackOutput: myinfra-PrivateSubnet1
+#
+#   #
+#   # Advanced: Managed private subnet with an existing NAT gateway
+#   #
+#   # kube-aws tries to reuse the ngw specified by id or idFromStackOutput
+#   # by adding a route to the ngw to a route table managed by kube-aws
+#   #
+#   # Please be sure that the NGW is properly deployed. kube-aws will never modify ngw itself.
+#   #
+#   - name: ManagedPrivateSubnetWithExistingNGW
+#     private: true
+#     availabilityZone: us-west-1a
+#     instanceCIDR: "10.0.1.0/24"
+#     natGateway:
+#       id: "ngw-xxxxxxxx"
+#       # Exported output's name from another stack
+#       # Only specify either id or idFromStackOutput but not both
+#       #idFromStackOutput: myinfra-PrivateSubnet1
+#
+#   #
+#   # Advanced: Managed private subnet with an existing NAT gateway
+#   #
+#   # kube-aws tries to reuse the ngw specified by id or idFromStackOutput
+#   # by adding a route to the ngw to a route table managed by kube-aws
+#   #
+#   # Please be sure that the NGW is properly deployed. kube-aws will never modify ngw itself.
+#   # For example, kube-aws won't assign a pre-allocated EIP to the existing ngw for you.
+#   #
+#   - name: ManagedPrivateSubnetWithExistingNGW
+#     private: true
+#     availabilityZone: us-west-1a
+#     instanceCIDR: "10.0.1.0/24"
+#     natGateway:
+#       # Pre-allocated NAT Gateway. Used with private subnets.
+#       id: "ngw-xxxxxxxx"
+#       # Exported output's name from another stack
+#       # Only specify either id or idFromStackOutput but not both
+#       #idFromStackOutput: myinfra-PrivateSubnet1
+#
+#   #
+#   # Advanced: Managed private subnet with an existing EIP for kube-aws managed NGW
+#   #
+#   # kube-aws tries to reuse the EIP specified by eipAllocationId
+#   # by associating the EIP to a NGW managed by kube-aws.
+#   # Please be sure that kube-aws won't assign an EIP to an existing NGW i.e.
+#   # either natGateway.id or eipAllocationId can be specified but not both.
+#   #
+#   - name: ManagedPrivateSubnetWithManagedNGWWithExistingEIP
+#     private: true
+#     availabilityZone: us-west-1a
+#     instanceCIDR: "10.0.1.0/24"
+#     natGateway:
+#       # Pre-allocated EIP for NAT Gateways. Used with private subnets.
+#       eipAllocationId: eipalloc-xxxxxxxx
+#
+#   #
+#   # Advanced: Managed private subnet with an existing route table
+#   #
+#   # kube-aws tries to reuse the route table specified by id or idFromStackOutput
+#   # by assigning this subnet to the route table.
+#   #
+#   # Please be sure that it's your responsibility to:
+#   # * Configure an AWS managed NAT or a NAT instance or an another NAT and
+#   # * Add a route to the NAT to the route table being reused
+#   #
+#   # i.e. kube-aws neither modify route table nor create other related resources like
+#   # ngw, route to nat gateway, eip for ngw, etc.
+#   #
+#   - name: ManagedPrivateSubnetWithExistingRouteTable
+#     private: true
+#     availabilityZone: us-west-1a
+#     instanceCIDR: "10.0.1.0/24"
+#     routeTable:
+#       # Pre-allocated route table
+#       id: "rtb-xxxxxxxx"
+#       # Exported output's name from another stack
+#       # Only specify either id or idFromStackOutput but not both
+#       #idFromStackOutput: myinfra-PrivateRouteTable1
+#
+#   #
+#   # Advanced: Managed public subnet with an existing route table
+#   #
+#   # kube-aws tries to reuse the route table specified by id or idFromStackOutput
+#   # by assigning this subnet to the route table.
+#   #
+#   # Please be sure that it's your responsibility to:
+#   # * Configure an internet gateway(IGW) and
+#   # * Attach the IGW to the VPC you're deploying to
+#   # * Add a route to the IGW to the route table being reused
+#   #
+#   # i.e. kube-aws neither modify route table nor create other related resources like
+#   # igw, route to igw, igw vpc attachment, etc.
+#   #
+#   - name: ManagedPublicSubnetWithExistingRouteTable
+#     availabilityZone: us-west-1a
+#     instanceCIDR: "10.0.1.0/24"
+#     routeTable:
+#       # Pre-allocated route table
+#       id: "rtb-xxxxxxxx"
+#       # Exported output's name from another stack
+#       # Only specify either id or idFromStackOutput but not both
+#       #idFromStackOutput: myinfra-PublicRouteTable1
+
+
+serviceCIDR: "10.3.0.0/24"
+podCIDR: "10.2.0.0/16"
+dnsServiceIP: 10.3.0.10
+tlsCADurationDays: 3650
+tlsCertDurationDays: 365
+
+# kubernetesVersion: v1.6.3_coreos.0
+
+#calicoNodeImage:
+#  repo: quay.io/calico/node
+#  tag: v1.2.0
+#  rktPullDocker: false
+
+#calicoCniImage:
+#  repo: quay.io/calico/cni
+#  tag: v1.8.3
+#  rktPullDocker: false
+
+#calicoPolicyControllerImage:
+#  repo: quay.io/calico/kube-policy-controller
+#  tag: v0.6.0
+#  rktPullDocker: false
+
+#clusterAutoscalerImage:
+#  repo: gcr.io/google_containers/cluster-proportional-autoscaler-amd64
+#  tag: 1.1.1
+#  rktPullDocker: false
+
+#kubeDnsImage:
+#  repo: gcr.io/google_containers/kubedns-amd64
+#  tag: 1.14.1
+#  rktPullDocker: false
+
+#kubeDnsMasqImage:
+#  repo: gcr.io/google_containers/k8s-dns-dnsmasq-nanny-amd64
+#  tag: 1.14.1
+#  rktPullDocker: false
+
+#kubeReschedulerImage:
+#  repo: gcr.io/google-containers/rescheduler
+#  tag: v0.3.0
+#  rktPullDocker: false
+
+#dnsMasqMetricsImage:
+#  gcr.io/google_containers/k8s-dns-sidecar-amd64
+#  tag: 1.14.1
+#  rktPullDocker: false
+
+#execHealthzImage:
+#  repo: gcr.io/google_containers/exechealthz-amd64
+#  tag: 1.2
+#  rktPullDocker: false
+
+#heapsterImage:
+#  repo: gcr.io/google_containers/heapster
+#  tag: v1.3.0
+#  rktPullDocker: false
+
+#addonResizerImage:
+#  repo: gcr.io/google_containers/addon-resizer
+#  tag: 1.7
+#  rktPullDocker: false
+
+#kubeDashboardImage:
+#  repo: gcr.io/google_containers/kubernetes-dashboard-amd64
+#  tag: v1.6.0
+#  rktPullDocker: false
+
+#calicoCtlImage:
+#  repo: calico/ctl
+#  tag: v1.2.0
+#  rktPullDocker: false
+
+#pauseImage:
+#  repo: gcr.io/google_containers/pause-amd64
+#  tag: 3.0
+#  rktPullDocker: false
+
+#flannelImage:
+#  repo: quay.io/coreos/flannel
+#  tag: v0.7.1
+#  rktPullDocker: false
+
+#journaldCloudWatchLogsImage:
+#  repo: "jollinshead/journald-cloudwatch-logs"
+#  tag: "0.1"
+#  rktPullDocker: true
+
+# Use Calico for network policy.
+useCalico: true
+
+# Create MountTargets to subnets managed by kube-aws for a pre-existing Elastic File System (Amazon EFS),
+# and then mount to every node.
+#
+# This is for mounting an EFS to every node.
+# If you'd like to mount an EFS only to a specific node pool, set `worker.nodePools[].elasticFileSystemId` instead.
+#
+# Enter the resource id, eg "fs-47a2c22e"
+# This is a NFS share that will be available across the entire cluster through a hostPath volume on the "/efs" mountpoint
+#
+# You can create a new EFS volume using the CLI:
+# $ aws efs create-file-system --creation-token $(uuidgen)
+#
+# Beware that:
+# * an EFS file system can not be mounted from multiple subnets from the same availability zone and
+#   therefore this feature won't work like you might have expected when you're deploying your cluster to an existing VPC and
+#   wanted to mount an existing EFS to the subnet(s) created by kube-aws
+#   See https://github.com/kubernetes-incubator/kube-aws/issues/208 for more information
+# * kube-aws doesn't create MountTargets for existing subnets(=NOT managed by kube-aws). If you'd like to bring your own subnets
+#   to be used by kube-aws, it is now your responsibility to configure the subnets, including creating MountTargets, accordingly
+#   to your requirements
+#elasticFileSystemId: fs-47a2c22e
+
+# Create shared persistent volume
+#sharedPersistentVolume: false
+
+# Determines the container runtime for kubernetes to use. Accepts 'docker' or 'rkt'.
+containerRuntime: docker
+
+# If you do not want kube-aws to manage certificaes, set it to false. If you do that
+# you are responsible for making sure that nodes have correct certificates by the time
+# daemons start up.
+# manageCertificates: true
+
+# When enabled, autoscaling groups managing controller nodes wait for nodes to be up and running.
+# It is enabled by default.
+#waitSignal:
+#  enabled: true
+#   maxBatchSize: 1
+
+# Autosaves all Kubernetes resources (in .json format) to a bucket 's3:.../<your-cluster-name>/backup/*'.
+# The autosave process executes on start-up and repeats every 24 hours.
+#kubeResourcesAutosave:
+#  enabled: false
+
+# When enabled, all nodes will forward journald logs to AWS CloudWatch.
+# It is disabled by default.
+#cloudWatchLogging:
+# enabled: false
+# retentionInDays: 7
+
+# Addon features
+addons:
+  # Will provision controller nodes with IAM permissions to run cluster-autoscaler and
+  # create a cluster-autoscaler deployment in the cluster
+  # CA runs only on controller nodes by default. Turn on `worker.nodePools[].clusterAutoscalerSupport.enabled` to
+  # add nodes from a node pool to be where CA runs
+  clusterAutoscaler:
+    enabled: false
+
+  # When enabled, Kubernetes rescheduler is deployed to the cluster controller(s)
+  # This feature is experimental currently so may not be production ready
+  rescheduler:
+    enabled: false
+
+# Experimental features will change in backward-incompatible ways
+# experimental:
+#   # Enable admission controllers
+#   admission:
+#     podSecurityPolicy:
+#       enabled: true
+#   # Used to provide `/etc/environment` env vars with values from arbitrary CloudFormation refs
+#   awsEnvironment:
+#     enabled: true
+#     environment:
+#       CFNSTACK: '{ "Ref" : "AWS::StackId" }'
+#   # Enable audit log for apiserver. Recommended when `rbac` is enabled.
+#   auditLog:
+#     enabled: true
+#     maxage: 30
+#     logpath: /dev/stdout
+#   authentication:
+#     # See https://kubernetes.io/docs/admin/authentication/#webhook-token-authentication
+#     # for more information.
+#     webhook:
+#       enabled: true
+#       cacheTTL: 1m0s
+#       configBase64: base64-encoded-webhook-yaml
+#   # Add predefined set of labels to the controller nodes
+#   # The set includes names of launch configurations and autoscaling groups
+#   awsNodeLabels:
+#     enabled: true
+#   # If enabled, instructs the controller manager to automatically issue TLS certificates to worker nodes via
+#   # certificate signing requests (csr) made to the API server using the bootstrap token. It's recommended to
+#   # also enable the rbac plugin in order to limit requests using the bootstrap token to only be able to make
+#   # requests related to certificate provisioning.
+#   # The bootstrap token must be defined in ./credentials/tokens.csv; kube-aws creates this file automatically
+#   # with a randomly generated token when this setting is enabled.
+#   tlsBootstrap:
+#     enabled: true
+#   # This option has not yet been tested with rkt as container runtime
+#   ephemeralImageStorage:
+#     enabled: true
+#   # When enabled it will grant sts:assumeRole permission to the IAM role for controller nodes.
+#   # This is intended to be used in combination with .controller.managedIamRoleName. See #297 for more information.
+#   kube2IamSupport:
+#     enabled: true
+#   # When enabled, `kubectl drain` is run when the instance is being replaced by the auto scaling group, or when
+#   # the instance receives a termination notice (in case of spot instances)
+#   nodeDrainer:
+#     enabled: true
+#     # Maximum time to wait, in minutes, for the node to be completely drained. Must be an integer between 1 and 60.
+#     drainTimeout: 5
+#   # Enable dex  integration - https://github.com/coreos/dex
+#   # Configure OpenID Connect token authenticator plugin in Kubernetes API server.
+#   # Notice: always use "https" for the "url", otherwise the Kubernetes API server will not start correctly.
+#   # Please set selfSignedCa to false if you plan to expose dex service using a LoadBalancer or Ingress with certificates signed by a trusted CA.
+#   dex:
+#     enabled: true
+#     url: "https://dex.example.com"
+#     clientId: "example-app"
+#     username: "email"
+#     groups: "groups"
+#     selfSignedCa: true
+#
+#   # Dex connectors configuration. You can add configuration for the desired connectors suported by dex or
+#   # skip this part if you don't plan to use any of them. Here is an example of GitHub connector.
+#     connectors:
+#     - type: github
+#       id: github
+#       name: GitHub
+#       config:
+#         clientId: "your_client_id"
+#         clientSecret: "your_client_secret"
+#         redirectURI: https://dex.example.com/callback
+#         org: your_organization
+#   # Configure static clients and users
+#     staticClients:
+#     - id: 'example-app'
+#       redirectURIs: 'http://127.0.0.1:5555/callback'
+#       name: 'Example App'
+#       secret: 'ZXhhbXBsZS1hcHAtc2VjcmV0'
+#
+#     staticPasswords:
+#     - email: "admin@example.com"
+#       # bcrypt hash of the string "password". You can use bcrypt-tool from CoreOS to generate the passwords.
+#       hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+#       username: "admin"
+#       userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
+#
+#   # Kubernetes node labels to be added to controller nodes
+#   nodeLabels:
+#     kube-aws.coreos.com/role: controller
+#   # Kubernetes node taints to be added to controller nodes
+#   taints:
+#     - key: dedicated
+#       value: search
+#       effect: NoSchedule
+#   plugins:
+#     rbac:
+#       enabled: true
+#
+#   # When set to true this configures the k8s aws provider so that it doesn't modify every node's security group to include an additional ingress rule per an ELB created for a k8s service whose type is "LoadBalancer"
+#   # It requires that the user has setup a rule that allows inbound traffic on kubelet ports
+#   # from the local VPC subnet so that load balancers can access it.  Ref: https://github.com/kubernetes/kubernetes/issues/26670
+#   disableSecurityGroupIngress: false
+#
+#   # Command line flag passed to the controller-manager. (default 40s)
+#   # This is the amount of time which we allow running Node to be unresponsive before marking it unhealthy.
+#   # Must be N times more than kubelet's nodeStatusUpdateFrequency (default 10s).
+#   nodeMonitorGracePeriod: "40s"
+
+stackTags:
+  Name: "{{ kubeatf.vars.cluster_name }}-{{ kubeatf.vars.aws_region }}"
+  Environment: "kubeatf"

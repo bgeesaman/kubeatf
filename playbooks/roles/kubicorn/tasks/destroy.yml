@@ -1,0 +1,25 @@
+---
+# tasks file for kubicorn
+- name: "{{ role_action }} - {{ kubeatf.installer }} {{ cluster_id }}"
+  debug:
+    msg: "This is {{ role_action }} for {{ kubeatf.installer }} {{ cluster_id }}"
+
+- name: "Destroy the cluster"
+  local_action:
+    module: shell
+    cmd: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ kubeatf.installer }}/{{ kubeatf.release }}/bin/kubicorn delete {{ kubeatf.vars.cluster_name }}"
+  environment:
+    KUBICORN_STATE_STORE_PATH: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}"
+    AWS_ACCESS_KEY_ID: "{{ kubeatf.vars.aws_access_key_id }}"
+    AWS_SECRET_ACCESS_KEY: "{{ kubeatf.vars.aws_secret_access_key }}"
+  register: destroyresult
+
+- name: Show destroyed
+  debug:
+    msg: "{{ destroyresult.stdout_lines }}"
+
+- name: Remove cluster folder
+  local_action:
+    module: file
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}"
+    state: absent

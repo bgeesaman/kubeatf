@@ -1,0 +1,12 @@
+---
+kubeatf:
+  profile_name: "kops-1.5.3"
+  installer:    "kops"
+  release:      "1.5.3"
+  platform:     "aws"
+  vars:
+    dns_zone_name: "kube.lonimbus.com"
+    s3_bucket_prefix: "bgeesaman-kops"
+    aws_region: "us-east-1"
+    aws_zone: "us-east-1d"
+    additional_create_options: ""

@@ -1,0 +1,56 @@
+---
+# tasks file for kubicorn
+- name: "{{ role_action }} - {{ role_name }} {{ release_version }} {{ platform }}"
+  debug:
+    msg: "This is {{ role_action }} for {{ role_name }} version {{ release_version }} on {{ platform }}"
+
+- name: "Generate cluster local dir"
+  local_action:
+    module: file
+    state: directory
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}"
+    mode: 0755
+
+- name: "Get profile.yml if created"
+  local_action:
+    module: stat
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/profile.yml"
+  register: profilepath
+
+- name: "Fail if it already exists"
+  fail:
+    msg: "Cluster already created!"
+  when: (profilepath.stat.exists == true)
+
+- name: "Copy Profile to Clusters Dir"
+  local_action:
+    module: shell
+    cmd: "cp {{ full_profile_path }} {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/profile.yml"
+
+- name: "Generate cluster config"
+  local_action:
+    module: shell
+    cmd: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}/bin/kubicorn create {{ kubeatf.vars.cluster_name }} --profile {{ kubeatf.platform }}"
+  environment:
+    KUBICORN_STATE_STORE_PATH: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}"
+  register: genresult
+  failed_when: 'genresult.rc !=0 and "will not overwrite" not in genresult.stdout'
+
+- name: "Create cluster"
+  local_action:
+    module: shell
+    cmd: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}/bin/kubicorn apply {{ kubeatf.vars.cluster_name }}"
+  environment:
+    KUBICORN_STATE_STORE_PATH: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}"
+    AWS_ACCESS_KEY_ID: "{{ kubeatf.vars.aws_access_key_id }}"
+    AWS_SECRET_ACCESS_KEY: "{{ kubeatf.vars.aws_secret_access_key }}"
+  register: createresult
+
+- name: debug
+  debug:
+    msg: "{{ createresult.stdout_lines }}"
+
+- name: "Copy kubeconfig to Clusters Dir"
+  local_action:
+    module: shell
+    cmd: "cp ~/.kube/config {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/kubeconfig"

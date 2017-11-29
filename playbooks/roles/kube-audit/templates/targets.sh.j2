@@ -1,0 +1,19 @@
+#!/bin/bash
+
+export KUBELET_URL="https://{{ nodeip.stdout }}:10250/runningpods/"
+export KUBELET_OTHER_WORKER_URL="https://{{ othernodeip.stdout }}:10250/runningpods/"
+export KUBELET_MASTER_URL="https://{{ masterip.stdout }}:10250/runningpods/"
+export KUBELET_RO_URL="http://{{ nodeip.stdout }}:10255/metrics"
+export KUBELET_OTHER_WORKER_RO_URL="http://{{ othernodeip.stdout }}:10255/metrics"
+export KUBELET_MASTER_RO_URL="http://{{ masterip.stdout }}:10255/metrics"
+export DASHBOARD_URL="http://kubernetes-dashboard.kube-system"
+export HEAPSTER_URL="http://heapster.kube-system/metrics"
+export ETCD_URL="https://10.0.0.182:2379"
+export CALICO_ETCD_URL="https://10.0.0.182:2379"
+#
+export KUBELET_SVC_URL="https://kubelet.kube-system:10250/runningpods/"
+export KUBE_CONTR_PROM_URL="http://kube-controller-manager-prometheus-discovery.kube-system:10252/metrics"
+export KUBE_SCHED_PROM_URL="http://kube-scheduler-prometheus-discovery.kube-system:10251/metrics"
+export PROM_URL="http://prometheus.tectonic-system:9090/graph"
+export KUBE_STATE_URL="http://kube-state-metrics.tectonic-system:8080/metrics"
+export NODE_EXP_URL="http://node-exporter.tectonic-system:9100/metrics"

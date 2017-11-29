@@ -1,0 +1,13 @@
+---
+# Run audit script
+- name: Run audit script
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig exec -t {{ podname.stdout }} -- /bin/bash -c /audit.sh"
+  register: auditresults
+
+# Get audit output
+- name: Test command output
+  debug:
+    msg: "{{ auditresults.stdout_lines }}"
+  when: (auditresults.changed == true)

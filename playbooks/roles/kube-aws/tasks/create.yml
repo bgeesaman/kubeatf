@@ -1,0 +1,167 @@
+---
+# tasks file for kube-aws
+- name: "{{ role_action }} - {{ role_name }} {{ release_version }} {{ platform }}"
+  debug:
+    msg: "This is {{ role_action }} for {{ role_name }} version {{ release_version }} on {{ platform }}"
+   
+- name: "Generate cluster local dir"
+  local_action:
+    module: file
+    state: directory
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}"
+    mode: 0755
+
+- name: "Get R53 Entry (if any)"
+  route53:
+    command: "get"
+    zone: "{{ kubeatf.vars.dns_zone_name }}"
+    record: "cluster.{{ kubeatf.vars.dns_zone_name }}"
+    type: "CNAME"
+  register: r53rec
+
+- name: "Delete old R53 entry (if needed)"
+  route53:
+    command: "delete"
+    zone: "{{ kubeatf.vars.dns_zone_name }}"
+    record: "cluster.{{ kubeatf.vars.dns_zone_name }}"
+    type: "{{ r53rec.set.type }}"
+    value: "{{ r53rec.set.value }}"
+    ttl: "{{ r53rec.set.ttl }}"
+  when: (r53rec.set.value is defined)
+
+- name: "Create S3 Bucket"
+  s3_bucket:
+    name: "{{ kubeatf.vars.s3_bucket }}"
+    state: present
+    region: "{{ kubeatf.vars.aws_region }}"
+  ignore_errors: yes   
+
+- name: "Get profile.yml if created"
+  local_action:
+    module: stat
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/profile.yml"
+  register: profilepath
+
+- name: "Fail if it already exists"
+  fail:
+    msg: "Cluster already created!"
+  when: (profilepath.stat.exists == true)
+
+- name: "Copy Profile to Clusters Dir"
+  local_action:
+    module: copy
+    src: "{{ full_profile_path }}"
+    dest: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/profile.yml"
+    mode: 0644
+
+- name: "Get KMS ARN"
+  local_action:
+    module: command
+    cmd: "aws kms create-key --region {{ kubeatf.vars.aws_region }} --description='kube-aws assets' --query 'KeyMetadata.Arn' --output text"
+  register: kmskey
+
+- name: "Write out KMS Key to clusters/<cluster_id>/profile.yml"
+  local_action:
+    module: replace
+    regexp: "AWSKMSARNPLACEHOLDER"
+    replace: "{{ kmskey.stdout }}"
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/profile.yml"
+
+- name: "Get R53 Zone ID"
+  local_action:
+    module: shell
+    cmd: "aws route53 list-hosted-zones-by-name --dns-name {{ kubeatf.vars.dns_zone_name }} --query 'HostedZones[].Id' --output text | cut -d'/' -f3 | tr -d '\t'"
+  register: r53zoneid
+
+- name: "Write out R53 Zone ID to clusters/<cluster_id>/profile.yml"
+  local_action:
+    module: replace
+    regexp: "R53ZONEIDPLACEHOLDER"
+    replace: "{{ r53zoneid.stdout }}"
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/profile.yml"
+
+- name: "Grab SSH Pub Key"
+  local_action:
+    module: command
+    cmd: "ssh-keygen -y -f ~/.ssh/kube.pem"
+  register: sshpub
+  changed_when: false
+
+- name: "Prepare key pair"
+  ec2_key:
+    name: kube
+    key_material: "{{ sshpub.stdout }}"
+    region: "{{ kubeatf.vars.aws_region }}"
+
+- include_vars: "{{ full_profile_path }}"
+
+- name: "Render cluster.yaml.j2"
+  local_action:
+    module: template
+    src: "{{ release_version}}.yaml.j2"
+    dest: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/cluster.yaml"
+
+- name: "Write out KMS Key to clusters/<cluster_id>/cluster.yaml"
+  local_action:
+    module: replace
+    regexp: "AWSKMSARNPLACEHOLDER"
+    replace: "{{ kmskey.stdout }}"
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/cluster.yaml"
+
+- name: "Write out R53 Zone ID to clusters/<cluster_id>/cluster.yaml"
+  local_action:
+    module: replace
+    regexp: "R53ZONEIDPLACEHOLDER"
+    replace: "{{ r53zoneid.stdout }}"
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/cluster.yaml"
+
+- name: "Copy kube-aws binary to clusters dir"
+  local_action:
+    module: copy
+    src: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'RELEASES_DIR') }}/{{ role_name }}/{{ release_version }}/{{ local_arch }}/kube-aws"
+    dest: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }}/kube-aws"
+    mode: 0755
+
+- name: "Cluster render credentials"
+  local_action:
+    module: shell
+    cmd: "cd {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }} && ./kube-aws render credentials --generate-ca"
+  register: rendercredentials
+
+- name: "Render credentials output"
+  debug:
+    msg: "{{ rendercredentials.stdout_lines }}"
+
+- name: "Cluster render stack"
+  local_action:
+    module: shell
+    cmd: "cd {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }} && ./kube-aws render stack"
+  register: renderstack
+
+- name: "Render stack output"
+  debug:
+    msg: "{{ renderstack.stdout_lines }}"
+
+#- name: "Cluster edit"
+#  debug:
+#    msg: "Cluster edit"
+
+- name: "Cluster up"
+  local_action:
+    module: shell
+    cmd: "cd {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }} && ./kube-aws up --s3-uri s3://{{ kubeatf.vars.s3_bucket }}"
+  register: up
+  failed_when: (up.rc !=0) and ('already exists' not in up.stderr)
+
+- name: "Stack up"
+  debug:
+    msg: "{{ up.stdout_lines }}"
+    
+- name: "Wait until base pods are up/running"
+  local_action:
+    module: shell
+    cmd: "cd {{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ role_name }}-{{ release_version }}-{{ platform }} && kubectl --kubeconfig=kubeconfig get pods --all-namespaces"
+  register: clusterresult
+  until: (clusterresult.rc == 0) and ('Pending' not in clusterresult.stdout) and ('Creating' not in clusterresult.stdout)
+  retries: 10
+  delay: 20

@@ -1,0 +1,27 @@
+---
+- name: "Get Node Name"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig get pod -l 'run={{ audit_name }}' -o jsonpath='{.items[0].spec.nodeName}'"
+  register: nodename
+  until: "(nodename.rc == 0)"
+  retries: 2
+  delay: 3
+
+- name: "Get Current Worker Node IP"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig get pod -l 'run={{ audit_name }}' -o jsonpath='{.items[0].status.hostIP}'"
+  register: nodeip
+  until: "(nodeip.rc == 0)"
+  retries: 2
+  delay: 3
+
+- name: "Get First Master Node IP"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig get nodes -o jsonpath='{.items[*].status.addresses[?(@.type==\"InternalIP\")].address}' -l 'node-role.kubernetes.io/master='"
+  register: masterip
+  until: "(masterip.rc == 0)"
+  retries: 2
+  delay: 3

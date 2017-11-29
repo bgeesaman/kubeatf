@@ -1,0 +1,22 @@
+---
+# tasks file for heptio
+- name: "{{ role_action }} - {{ kubeatf.installer }} {{ cluster_id }}"
+  debug:
+    msg: "This is {{ role_action }} for {{ kubeatf.installer }} {{ cluster_id }}"
+
+- name: "Destroy the cluster"
+  cloudformation:
+    stack_name: "{{ kubeatf.vars.stack_name }}"
+    state: "absent"
+    region: "{{ kubeatf.vars.aws_region }}"
+  register: stackoutput
+
+- name: Get params
+  debug:
+    msg: "{{ stackoutput }}"
+
+- name: Remove cluster folder
+  local_action:
+    module: file
+    path: "{{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}"
+    state: absent

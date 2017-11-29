@@ -1,0 +1,158 @@
+clusterName: "{{ kubeatf.vars.cluster_name }}"
+
+releaseChannel: stable
+apiEndpoints:
+- # The unique name of this API endpoint used to identify it inside CloudFormation stacks or
+  name: default
+  dnsName: "{{ kubeatf.vars.cluster_name }}.{{ kubeatf.vars.dns_zone_name }}"
+  loadBalancer:
+    createRecordSet: true
+    private: false
+    recordSetTTL: 120
+    hostedZone:
+      id: "{{ kubeatf.vars.r53_zone_id }}"
+
+keyName: "{{ kubeatf.vars.aws_keypair }}"
+region: "{{ kubeatf.vars.aws_region }}"
+availabilityZone: "{{ kubeatf.vars.aws_zone }}"
+kmsKeyArn: "{{ kubeatf.vars.aws_kmsarn }}"
+
+controller:
+  count: 1
+  createTimeout: PT15M
+  instanceType: t2.medium
+  rootVolume:
+    size: 30
+    type: gp2
+    iops: 0
+
+worker:
+  nodePools:
+    - # Name of this node pool. Must be unique among all the node pools in this cluster
+      name: nodepool1
+      count: 1
+      instanceType: t2.large
+      rootVolume:
+        size: 30
+        type: gp2
+        iops: 0
+      createTimeout: PT15M
+      waitSignal:
+        enabled: true
+        maxBatchSize: 1
+      autoScalingGroup:
+        minSize: 1
+        maxSize: 2
+        rollingUpdateMinInstancesInService: 2
+      awsNodeLabels:
+        enabled: true
+      clusterAutoscalerSupport:
+        enabled: false
+      kube2IamSupport:
+        enabled: true
+      nodeLabels:
+        kube-aws.coreos.com/role: worker
+
+etcd:
+  count: 1
+  instanceType: t2.medium
+  rootVolume:
+    size: 30
+    type: gp2
+    iops: 0
+  dataVolume:
+    size: 30
+    type: gp2
+    iops: 0
+    encrypted: false
+    ephemeral: false
+  tenancy: default
+  version: 2
+
+## Networking config
+serviceCIDR: "10.3.0.0/24"
+podCIDR: "10.2.0.0/16"
+dnsServiceIP: 10.3.0.10
+tlsCADurationDays: 3650
+tlsCertDurationDays: 365
+
+useCalico: true
+containerRuntime: docker
+
+# Addon features
+addons:
+  clusterAutoscaler:
+    enabled: false
+  rescheduler:
+    enabled: false
+
+kubernetesVersion: v1.8.2_coreos.0
+
+# Hyperkube image repository to use.
+# hyperkubeImage:
+#   repo: quay.io/coreos/hyperkube
+#   rktPullDocker: false
+calicoNodeImage:
+  repo: quay.io/calico/node
+  tag: v2.6.2
+  rktPullDocker: false
+
+kube2iamImage:
+  repo: jtblin/kube2iam
+  tag: 0.8.1
+  rktPullDocker: false
+
+kubeDashboardImage:
+  repo: gcr.io/google_containers/kubernetes-dashboard-amd64
+  tag: v1.7.1
+  rktPullDocker: false
+
+kubeDashboardInitImage:
+  repo: gcr.io/google_containers/kubernetes-dashboard-init-amd64
+  tag: v1.0.1
+
+kubeDashboardAdminPrivileges: false
+
+# Experimental features will change in backward-incompatible ways
+experimental:
+  admission:
+    podSecurityPolicy:
+      enabled: true
+    alwaysPullImages:
+      enabled: false
+    denyEscalatingExec:
+      enabled: true
+    initializers:
+      enabled: false
+  awsEnvironment:
+    enabled: false
+    environment:
+      CFNSTACK: '{ "Ref" : "AWS::StackId" }'
+  auditLog:
+    enabled: false
+    maxage: 30
+    logpath: /dev/stdout
+  authentication:
+    webhook:
+      enabled: false
+      cacheTTL: 1m0s
+      configBase64: base64-encoded-webhook-yaml
+  awsNodeLabels:
+    enabled: false
+  tlsBootstrap:
+    enabled: true
+  nodeAuthorizer:
+    enabled: true
+  ephemeralImageStorage:
+    enabled: false
+  kube2IamSupport:
+    enabled: true
+  nodeDrainer:
+    enabled: false
+    drainTimeout: 5
+  oidc:
+    enabled: false
+    issuerUrl: "https://accounts.google.com"
+    clientId: "kubernetes"
+    usernameClaim: "email"
+    groupsClaim: "groups"

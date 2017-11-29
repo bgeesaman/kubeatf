@@ -1,0 +1,12 @@
+---
+kubeatf:
+  profile_name: "gke-1-8-3-gce"
+  installer:    "gke"
+  release:      "1.8.3-gke.0"
+  platform:     "gce"
+  vars:
+    project_id: "gkek8s-178117"
+    compute_zone: "us-east1-b"
+    num_nodes: 3
+    alphabeta:    "beta"
+    extra_options: "--no-enable-legacy-authorization --enable-network-policy"

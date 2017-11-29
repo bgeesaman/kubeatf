@@ -1,0 +1,54 @@
+---
+- name: "Get Node Name"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig get pod -l 'run={{ audit_name }}' -o jsonpath='{.items[0].spec.nodeName}'"
+  register: nodename
+  until: "(nodename.rc == 0)"
+  retries: 2
+  delay: 3
+
+- name: "Get Current Worker Node IP"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig get pod -l 'run={{ audit_name }}' -o jsonpath='{.items[0].status.hostIP}'"
+  register: nodeip
+  until: "(nodeip.rc == 0)"
+  retries: 2
+  delay: 3
+
+- name: "Get Another Worker Node IP"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig get nodes -o jsonpath='{.items[0].status.addresses[?(@.type==\"InternalIP\")].address}' -l 'kubernetes.io/role!=master' -l 'kubernetes.io/hostname!={{ nodename.stdout }}'"
+  register: othernodeip
+  until: "(othernodeip.rc == 0)"
+  retries: 2
+  delay: 3
+
+- name: "Get First Master Node IP"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig get nodes -o jsonpath='{.items[*].status.addresses[?(@.type==\"InternalIP\")].address}' -l 'kubernetes.io/role=master'"
+  register: masterip
+  until: "(masterip.rc == 0)"
+  retries: 2
+  delay: 3
+
+- name: "Get Kubernetes Dashboard Service Name"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig get svc -n kube-system -l 'k8s-app=kubernetes-dashboard' -o jsonpath='{.items[0].metadata.name}'"
+  register: dashboardsvc
+  until: "(dashboardsvc.rc == 0)"
+  retries: 2
+  delay: 3
+
+- name: "Get Calico ETCD IP"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig get svc -n kube-system -l 'k8s-app=calico-etcd' -o jsonpath='{.items[0].metadata.name}'"
+  register: calicoetcdsvc
+  until: "(calicoetcdsvc.rc == 0)"
+  retries: 2
+  delay: 3

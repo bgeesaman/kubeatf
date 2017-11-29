@@ -1,0 +1,7 @@
+---
+# defaults file for kops
+releases_url: "https://api.github.com/repos/kubernetes/kops/releases"
+download_url: "https://github.com/kubernetes/kops/releases/download/{{ release_version }}/kops-linux-amd64"
+download_url2: "https://github.com/kubernetes/kops/releases/download/{{ release_version }}/kops-darwin-amd64"
+
+local_arch: "darwin-amd64" # linux-amd64

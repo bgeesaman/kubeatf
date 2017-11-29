@@ -1,0 +1,30 @@
+---
+- name: "Launch test pod/container"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig run {{ audit_name }} --image={{ audit_image }}"
+  register: runpodresult
+  when: (audit_name not in k3gpresult.stdout)
+
+- name: Run Pod
+  debug:
+    msg: "{{ runpodresult.stdout_lines }}"
+  when: (runpodresult.changed == true)
+
+- name: "Get Pod Name"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig get pod -l 'run={{ audit_name }}' -o jsonpath='{.items[0].metadata.name}'"
+  register: podname
+  until: "(podname.rc == 0) and (audit_name in podname.stdout)"
+  retries: 30
+  delay: 3
+
+- name: "Wait for pod to be running"
+  local_action:
+    module: shell
+    cmd: "kubectl --kubeconfig={{ lookup('env', 'PROJECT_PATH') }}/{{ lookup('env', 'CLUSTERS_DIR') }}/{{ cluster_id }}/kubeconfig get pod {{ podname.stdout }}"
+  register: podrunning
+  until: (podrunning.rc == 0) and ('Running' in podrunning.stdout)
+  retries: 30
+  delay: 3

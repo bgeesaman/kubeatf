@@ -1,0 +1,4 @@
+---
+# tasks file for kube-aws
+- name: "Perform {{ role_action }}"
+  include: "tasks/{{ role_action }}.yml"
